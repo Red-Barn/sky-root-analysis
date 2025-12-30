@@ -3,11 +3,11 @@ from itertools import product
 from route_improvement import improvement_required_custom
 
 
-INPUT_PATH = "output/analysis_result.csv"
-OUTPUT_PATH = "output/sensitivity_result.csv"
+INPUT_PATH = r"C:\mygit\SkyRoot\analysis_result\2024-08-19.csv"
+OUTPUT_PATH = r"C:\mygit\SkyRoot\sensitivity_result\2024-08-19.csv"
 
 
-def run_sensitivity_analysis(df_results):
+def run_sensitivity_analysis(df):
     cluster_sizes = [3, 5, 7]
     medians = [100, 150, 200]
     near_ratios = [0.4, 0.5, 0.6]
@@ -15,12 +15,9 @@ def run_sensitivity_analysis(df_results):
     records = []
 
     for cs, md, nr in product(cluster_sizes, medians, near_ratios):
-        df = df_results.copy()
-
         df["improvement_required"] = df.apply(
             lambda r: improvement_required_custom(
-                r["metrics"],
-                r["clusters"],
+                r,
                 cs,
                 md,
                 nr
@@ -28,13 +25,11 @@ def run_sensitivity_analysis(df_results):
             axis=1
         )
 
-        ratio = df["improvement_required"].mean()
-
         records.append({
             "cluster_size_th": cs,
             "median_th": md,
             "near_ratio_th": nr,
-            "improvement_ratio": ratio
+            "improvement_ratio": df["improvement_required"].mean()
         })
 
     return pd.DataFrame(records)
