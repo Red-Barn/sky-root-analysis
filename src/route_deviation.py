@@ -16,13 +16,14 @@ def build_deviation_features(actual_coords, distances):
 def detect_deviation_clusters(
     actual_coords,
     distances,
-    dist_threshold=150,   # 이 이상이면 '이탈 후보'
-    eps=0.0005,           # 약 50m (위도 기준)
+    dist_threshold=150, # 이탈 범위 = 150m
+    eps=0.0005,         # 약 50m (위도 기준)
     min_samples=5
 ):
     """
     return:
       - deviation_clusters: {cluster_id: [indices]}
+      - max_cluster_size: int
       - has_deviation: bool
     """
 
@@ -51,9 +52,6 @@ def detect_deviation_clusters(
             continue
         clusters.setdefault(label, []).append(idx[i])
         
-    max_cluster_size = max(
-        [sum(labels == k) for k in set(labels) if k != -1],
-        default=0
-    )
+    max_cluster_size = max([len(v) for v in clusters.values()])
 
     return clusters, max_cluster_size, len(clusters) > 0

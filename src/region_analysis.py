@@ -28,17 +28,3 @@ def region_level_analysis(df):
     )
 
     return grouped.sort_values("severity_score", ascending=False)
-
-def main():
-    INPUT = r"C:\mygit\SkyRoot\trip_analysis_result\2024-08-19.csv"
-    OUTPUT = r"C:\mygit\SkyRoot\region_analysis_result\2024-08-19.csv"
-
-    df = pd.read_csv(INPUT)
-    region_df = region_level_analysis(df)
-    region_df.to_csv(OUTPUT, index=False)
-
-    print("Step 5 완료:", OUTPUT)
-
-
-if __name__ == "__main__":
-    main()

@@ -1,11 +1,7 @@
 import pandas as pd
 from itertools import product
 from route_improvement import improvement_required_custom
-
-
-INPUT_PATH = r"C:\mygit\SkyRoot\analysis_result\2024-08-19.csv"
-OUTPUT_PATH = r"C:\mygit\SkyRoot\sensitivity_result\2024-08-19.csv"
-
+from config import ROUTE_OUTPUT_PATH, SENSITIVITY_OUTPUT_PATH
 
 def run_sensitivity_analysis(df):
     cluster_sizes = [3, 5, 7]
@@ -13,11 +9,16 @@ def run_sensitivity_analysis(df):
     near_ratios = [0.4, 0.5, 0.6]
 
     records = []
+    
+    df = df[df["has_candidate"] == True].copy()
 
     for cs, md, nr in product(cluster_sizes, medians, near_ratios):
         df["improvement_required"] = df.apply(
             lambda r: improvement_required_custom(
-                r,
+                r["max_cluster_size"],
+                r["median_dist"],
+                r["near_ratio"],
+                r["max_dist"],
                 cs,
                 md,
                 nr
@@ -36,10 +37,10 @@ def run_sensitivity_analysis(df):
 
 
 def main():
-    df = pd.read_csv(INPUT_PATH)
+    df = pd.read_csv(ROUTE_OUTPUT_PATH)
     result = run_sensitivity_analysis(df)
-    result.to_csv(OUTPUT_PATH, index=False)
-    print("민감도 분석 완료:", OUTPUT_PATH)
+    result.to_csv(SENSITIVITY_OUTPUT_PATH, index=False)
+    print("민감도 분석 완료:",SENSITIVITY_OUTPUT_PATH)
 
 
 if __name__ == "__main__":
