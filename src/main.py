@@ -6,13 +6,13 @@ from route_generation import get_bus_candidate_routes
 from route_similarity import select_best_route_gpu
 from route_deviation import detect_deviation_clusters
 from route_improvement import is_improvement_required
+from region_analysis import region_level_analysis
 
 
 # =========================
 # 환경 설정
 # =========================
-CSV_PATH = r"C:\mygit\SkyRoot\result\2024-08-19.csv"
-OUTPUT_PATH = r"C:\mygit\SkyRoot\trip_analysis_result\2024-08-19.csv"
+from config import RESULT_INPUT_PATH, ROUTE_OUTPUT_PATH, REGION_OUTPUT_PATH
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -92,7 +92,8 @@ def analyze_trip(trip_no, df_trip):
     # Step 4: 경로 개선 필요 판별
     improve_required = is_improvement_required(
         metrics, 
-        clusters
+        clusters,
+        max_cluster_size
     )
 
     return {
@@ -115,7 +116,7 @@ def analyze_trip(trip_no, df_trip):
 # 메인 실행
 # =========================
 def main():
-    df = pd.read_csv(CSV_PATH)
+    df = pd.read_csv(RESULT_INPUT_PATH)
 
     results = []
 
@@ -127,9 +128,14 @@ def main():
         except Exception as e:
             print(f"[에러] {trip_no}: {e}")
 
-    result_df = pd.DataFrame(results)
-    result_df.to_csv(OUTPUT_PATH, index=False)
-    print("\n분석 완료 → 결과 저장:", OUTPUT_PATH)
+    route_result_df = pd.DataFrame(results)
+    route_result_df.to_csv(ROUTE_OUTPUT_PATH, index=False)
+    
+    # Step 5: 지역별 분석
+    region_result_df = region_level_analysis(route_result_df)
+    region_result_df.to_csv(REGION_OUTPUT_PATH, index=False)
+    
+    print("\n분석 완료 → 결과 저장")
 
 
 if __name__ == "__main__":
