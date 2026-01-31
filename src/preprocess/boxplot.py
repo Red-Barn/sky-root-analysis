@@ -4,13 +4,11 @@ from tqdm import tqdm
 from collections import defaultdict
 
 from src.config.settings import PROCESSED_DATA_DIR, DATA_DIR
-from src.trajectory.builder import group_py_NO
 
 AIRPORT_EMD = 28110147  # 인천공항
 
 def sum_all_dataframes():
     all_tripDF = pd.DataFrame()
-    
     results = []
     
     for file_path in tqdm(list(PROCESSED_DATA_DIR.glob("*.csv")), desc="Summing DataFrames", position=0):
@@ -23,7 +21,6 @@ def sum_all_dataframes():
 
 def get_exit_time(trip_group):
     start_emd = trip_group.iloc[0]["EMD_CODE"]
-    
     exited = trip_group[trip_group["EMD_CODE"] != start_emd]
     
     if exited.empty:
@@ -80,7 +77,6 @@ def get_outlier(access_times):
         upper = Q3 + 1.5 * IQR
         
         results.append((emd, min_val, lower, Q1, Q2, Q3, upper, max_val))
-        
         bounds[emd] = upper
         
     df = pd.DataFrame(results, columns=["EMD_CODE", "min", "lower", "Q1", "Q2", "Q3", "upper", "max"])
@@ -102,7 +98,6 @@ def outlier_filter(trip_df, bounds):
             filtered_results.append(group)
             
     filtered_trip_df = pd.concat(filtered_results, ignore_index=True)
-    
     return filtered_trip_df
 
 
