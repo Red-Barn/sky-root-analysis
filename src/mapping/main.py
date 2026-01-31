@@ -36,7 +36,6 @@ def run_mapping():
 
         update_city_bus_output(output, city_bus)
         
-        # 결과를 저장
         output_path = MAPPING_DATA_DIR / file_path.name
         output.to_csv(output_path, index=False)
         

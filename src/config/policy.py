@@ -2,11 +2,13 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+# similarity.select_best_route_gpu
 class RouteSimilarityPolicy:
-    near_threshold: float = 100 # 기본값 100
+    near_threshold: float = 100 # 100m 이내를 근접으로 간주하여 유사도 평가
 
 
 @dataclass(frozen=True)
+# deviation.detect_deviation_clusters
 class DeviationPolicy:
     dist_threshold: float = 150 # 이탈 범위 = 150m
     eps: float = 50             # 약 50m (위도 기준)

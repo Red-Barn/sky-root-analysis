@@ -1,36 +1,39 @@
 import pandas as pd
 
-# 시간을 datetime 형식으로 변환
 def time_to_datatime(df):
     df['DPR_MT1_UNIT_TM'] = pd.to_datetime(df['DPR_MT1_UNIT_TM'])
     return df
 
-# TRANSPORT_TYPE의 값이 nan이면 None으로 변경
 def transport_nan_to_none(df):
     df['TRANSPORT_TYPE'] = df['TRANSPORT_TYPE'].apply(lambda x: None if pd.isna(x) else x)
     return df
 
-# 각 사람별로 데이터 그룹화
 def group_py_NO(df):
     grouped = df.groupby('TRIP_NO')
     return grouped
 
-# 기본 이동 경로 생성 함수
 def normal_create_trajectory(group):
     return group.sort_values('DPR_MT1_UNIT_TM')[['DYNA_DYN_KD_CD', 'DPR_MT1_UNIT_TM', 'DPR_CELL_XCRD', 'DPR_CELL_YCRD']].to_numpy()
 
-# transport 이동 경로 생성 함수
 def transport_create_trajectory(group):
     return group.sort_values('DPR_MT1_UNIT_TM')[['DYNA_DYN_KD_CD', 'DPR_MT1_UNIT_TM', 'DPR_CELL_XCRD', 'DPR_CELL_YCRD', 'TRANSPORT_TYPE']].to_numpy()
 
-# 각 사람별 기본 이동 경로 생성
 def normal_paths(df):
+    """
+    데이터프레임을 {TRIP_NO: trajectory} 형태의 딕셔너리로 변환합니다.
+    trajectory는 시간순으로 정렬된 [DYNA_DYN_KD_CD, DPR_MT1_UNIT_TM, DPR_CELL_XCRD, DPR_CELL_YCRD]의 numpy 배열입니다.
+    """
     df = time_to_datatime(df)
     grouped = group_py_NO(df)
     trajectories = {no: normal_create_trajectory(group) for no, group in grouped}
     return trajectories
 
 def transport_path(df):
+    """
+    데이터프레임을 {TRIP_NO: trajectory} 형태의 딕셔너리로 변환합니다.
+    trajectory는 시간순으로 정렬된 [DYNA_DYN_KD_CD, DPR_MT1_UNIT_TM, DPR_CELL_XCRD, DPR_CELL_YCRD, TRANSPORT_TYPE]의 numpy 배열입니다.
+    단, 공항버스 이전의 경로를 구하기 위해 TRANSPORT_TYPE이 None이 아닌 첫 번째 지점 이전의 지점들로만 구성됩니다.
+    """
     df = time_to_datatime(df)
     df = transport_nan_to_none(df)
     grouped = group_py_NO(df)
