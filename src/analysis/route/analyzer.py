@@ -47,7 +47,7 @@ def analyze_trip(trip_no, df_trip, ctx):
     departure_time = get_departure_time_for_api(df_trip)
 
     # Step 1: 후보 경로 생성
-    candidate_routes = get_bus_candidate_routes(origin_lat, origin_lon, dest_lat, dest_lon, departure_time)
+    candidate_total_info, candidate_routes = get_bus_candidate_routes(trip_no, origin_lat, origin_lon, dest_lat, dest_lon, departure_time)
 
     if not candidate_routes:
         tqdm.write("버스 후보 경로 없음")

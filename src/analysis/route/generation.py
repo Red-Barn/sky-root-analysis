@@ -1,54 +1,85 @@
-import googlemaps
+import pandas as pd
+import requests
 import polyline
 
-# 1. Google Maps Client
+from src.data.loader import DATA_DIR
 from src.config.settings import API_KEY
-gmaps = googlemaps.Client(key=API_KEY)
+url = "https://maps.googleapis.com/maps/api/directions/json"
 
-# 2. 버스 경로 추출
-def extract_bus_route_coords(route):
-    """
-    하나의 route에서 버스 경로에 대한 데이터만 수집
-    """
-    coords = []
-    
-    for leg in route["legs"]:
-        for step in leg["steps"]:   
-            if step["travel_mode"] != "TRANSIT":
-                continue
+def get_candidate_total_info(trip_no, data):
+    rows = []
+    for route_no, route in enumerate(data["routes"]):
+        for step in route["legs"][0]["steps"]:
+            row = {
+                "TRIP_NO": trip_no,
+                "ROUTE_NO": route_no,
+                "DISTANCE": step["distance"]["value"],     # meters
+                "DURATION": step["duration"]["value"],     # seconds
+                "START_LNG": step["start_location"]["lng"],
+                "START_LAT": step["start_location"]["lat"],
+                "END_LNG": step["end_location"]["lng"],
+                "END_LAT": step["end_location"]["lat"],
+                "POLYLINE": step["polyline"]["points"],
+                "TRAVEL_MODE": step["travel_mode"],
+                "BUS_NAME": None,
+                "BUS_TYPE": None
+            }
             
-            transit = step.get("transit_details")
-            if not transit:
-                continue
-            
-            if transit["line"]["vehicle"]["type"] != "BUS":
-                continue
-            
-            step_coords = polyline.decode(step["polyline"]["points"])
-            coords.extend(step_coords)
-            
-    return coords if len(coords) > 0 else None
+            if step["travel_mode"] == "TRANSIT":
+                transit = step.get("transit_details", {})
+                line = transit.get("line", {})
+                row["BUS_NAME"] = line.get("short_name")
+                row["BUS_TYPE"] = line.get("name")
 
+            rows.append(row)
+    return rows
+    
+def get_candidate_routes_info(trip_no, data):
+    rows = []
+    for route_no, route in enumerate(data["routes"]):
+        coords = []
+        for step in route["legs"][0]["steps"]:
+            travel_mode = step["travel_mode"]
+            bus_name = None
+            bus_type = None
 
-# 3. Trip 하나에 대한 후보 버스 경로 생성
-def get_bus_candidate_routes(origin_lat, origin_lon, dest_lat, dest_lon, departure_time):
+            if travel_mode == "TRANSIT":
+                line = step["transit_details"]["line"]
+                bus_name = line.get("short_name")
+                bus_type = line.get("name")
+
+            decoded_points = polyline.decode(step["polyline"]["points"])
+            coords.extend(decoded_points)
+
+        if len(coords) == 0:
+            continue
+        
+        rows.append({
+            "TRIP_NO": trip_no,
+            "ROUTE_NO": route_no,
+            "POINTS": decoded_points  # [(lat, lon), ...]
+        })
+        
+    return rows
+
+def get_bus_candidate_routes(trip_no, origin_lat, origin_lon, dest_lat, dest_lon, departure_time):
     
-    res = gmaps.directions(
-        origin = (origin_lat, origin_lon),
-        destination = (dest_lat, dest_lon),
-        mode = "transit",
-        departure_time = departure_time,
-        language = "ko",
-        alternatives = True
-    )
+    params = {
+        "origin": f"{origin_lat},{origin_lon}",
+        "destination": f"{dest_lat},{dest_lon}",
+        "departure_time": f"{departure_time}",
+        "mode": "transit",
+        "transit_mode": "bus",
+        "transit_routing_preference": "fewer_transfers",
+        "alternatives": "true",
+        "language": "ko",
+        "key": API_KEY
+    }
     
-    bus_routes = []
+    res = requests.get(url, params=params)
+    data = res.json()
     
-    for route in res:
-        coords = extract_bus_route_coords(route)
-        if coords:
-            bus_routes.append(coords)
-    """
-    bus_routes: [[(lat, lon), ...], [(lat, lon), ...], ...]
-    """
-    return bus_routes
+    candidate_total_info = get_candidate_total_info(trip_no, data)
+    candidate_routes = get_candidate_routes_info(trip_no, data)
+    
+    return candidate_total_info, candidate_routes
