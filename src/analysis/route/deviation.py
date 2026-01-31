@@ -21,7 +21,7 @@ def detect_deviation_clusters(actual_coords, distances, policy):
       - has_deviation: bool
     """
     dist_threshold=policy.dist_threshold 
-    eps=policy.eps         
+    eps=policy.eps
     min_samples=policy.min_samples
 
     # 1. 이탈 후보만 추림
