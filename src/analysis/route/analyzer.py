@@ -5,7 +5,6 @@ from tqdm import tqdm
 
 from src.analysis.route.generation import get_bus_candidate_routes
 from src.analysis.route.similarity import select_best_route_gpu
-from src.analysis.route.deviation import detect_deviation_clusters
 from src.analysis.route.improvement import is_improvement_required
 
 # 출발 시간 처리
@@ -58,26 +57,23 @@ def analyze_trip(trip_no, df_trip, ctx):
 
     # Step 2: 최적 경로 선택
     best_idx, metrics = select_best_route_gpu(actual_coords, candidate_routes, policy=ctx.similarity, device=ctx.device)
-
-    # Step 3: 이탈 지점 탐지
-    clusters, max_cluster_size, has_deviation = detect_deviation_clusters(actual_coords, metrics["distances"], policy=ctx.deviation)
     
-    # Step 4: 경로 개선 필요 판별
-    improve_required = is_improvement_required(metrics, clusters, max_cluster_size, policy=ctx.improvement)
+    # Step 3: 경로 개선 필요 판별
+    improvement = is_improvement_required(metrics["distances"], policy=ctx.improvement)
 
     return {
         "TRIP_NO": trip_no,
         "EMD_CODE": emd_code,
         "has_candidate": True,
         "best_route_idx": best_idx,
-        "mean_dist": metrics["mean"],
-        "median_dist": metrics["median"],
-        "near_ratio": metrics["near_ratio"],
-        "max_dist": metrics["max"],
-        "has_deviation": has_deviation,
-        "num_deviation_clusters": len(clusters),
-        "max_cluster_size": max_cluster_size,
-        "improve_required": improve_required
+        "dtw": metrics["dtw"],
+        "aligment": metrics["aligment"],
+        "distances": metrics["distances"].tolist(),
+        "improve_required": improvement["need_improvement"],
+        "deviation_ratio": improvement["deviation_ratio"],
+        "mean_confidence": improvement["mean_confidence"],
+        "longest_deviation": improvement["longest_deviation"],
+        "separation": improvement["separation"]
     }
     
 def analyze_trips(df, ctx):
