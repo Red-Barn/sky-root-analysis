@@ -1,34 +1,58 @@
-import pandas as pd
-from itertools import product
+import numpy as np
+from sklearn.mixture import GaussianMixture
 
-def is_improvement_required(metrics, deviation_clusters, max_cluster_size, policy):
-    """
-    metrics: Step 2 결과 dict
-    deviation_clusters: Step 3 결과
-    max_cluster_size: Step3 결과
-    """
-
-    if not deviation_clusters:
-        return False
-
-    A = max_cluster_size >= policy.max_cluster_size_threshold
-    B = metrics["median"] >= policy.median_dist_threshold and metrics["near_ratio"] <= policy.near_ratio_threshold
-    C = metrics["max"] >= policy.max_dist_threshold
-
-    return A and (B or C)
-
-def improvement_required_custom(
-    max_cluster_size,
-    median,
-    near_raio,
-    max,
-    cluster_size_th,
-    median_th,
-    near_ratio_th
-):
+def gmm_deviation_clusters(distances):
+    X = distances.numpy().reshape(-1, 1)  # (N, 1)
     
-    A = max_cluster_size >= cluster_size_th
-    B = median >= median_th and near_raio <= near_ratio_th
-    C = max >= 1000
+    gmm = GaussianMixture(
+        n_components=2,     # normal / deviation
+        covariance_type='full',
+        random_state=0)
+    gmm.fit(X)
+    
+    labels = gmm.predict(X)  # (N,)
+    means = gmm.means_.flatten()  # (2,)
+    
+    normal_label = np.argmin(means)
+    dev_label = np.argmax(means)
+    
+    return labels, normal_label, dev_label, gmm
 
-    return A and (B or C)
+def longest_run(mask):
+    max_run, cur = 0, 0
+    for v in mask:
+        if v:
+            cur += 1
+            max_run = max(max_run, cur)
+        else:
+            cur = 0
+    return max_run
+
+def is_improvement_required(distances, policy):
+    labels, normal_label, dev_label, gmm = gmm_deviation_clusters(distances)
+    probs = gmm.predict_proba(distances.numpy().reshape(-1, 1))
+    mean_conf = probs[:, dev_label][is_deviated].mean()
+    
+    is_deviated = (labels == dev_label)
+    deviation_ratio = is_deviated.mean()
+    
+    deviation_score = deviation_ratio * mean_conf
+    
+    mu = gmm.means_.flatten()
+    sigma = np.sqrt(gmm.covariances_.flatten())
+    
+    separation = abs(mu[0] - mu[1]) / (sigma[0] + sigma[1])
+    
+    need_improvement = (
+        deviation_score >= policy.deviation_score_threshold and
+        longest_run(is_deviated) >= policy.longest_deviation_threshold and
+        separation >= policy.separation_threshold
+    )
+    
+    return {
+        "need_improvement": need_improvement,
+        "deviation_ratio": deviation_ratio,
+        "mean_confidence": mean_conf,
+        "longest_deviation": longest_run(is_deviated),
+        "separation": separation
+    }

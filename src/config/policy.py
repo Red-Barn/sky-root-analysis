@@ -8,19 +8,10 @@ class RouteSimilarityPolicy:
 
 
 @dataclass(frozen=True)
-# deviation.detect_deviation_clusters
-class DeviationPolicy:
-    dist_threshold: float = 150 # 이탈 범위 = 150m
-    eps: float = 50             # 약 50m (위도 기준)
-    min_samples: int = 5
-
-
-@dataclass(frozen=True)
 class ImprovementPolicy:
-    max_cluster_size_threshold: int = 5
-    median_dist_threshold: float = 150.0
-    near_ratio_threshold: float = 0.5
-    max_dist_threshold: float = 1000.0
+    deviation_score_threshold: float = 0.2
+    longest_deviation_threshold: int = 10
+    separation_threshold: float = 1.0
     
     
 @dataclass(frozen=True)
