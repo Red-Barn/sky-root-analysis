@@ -39,15 +39,6 @@ def get_candidate_routes_info(trip_no, data):
     for route_no, route in enumerate(data["routes"]):
         coords = []
         for step in route["legs"][0]["steps"]:
-            travel_mode = step["travel_mode"]
-            bus_name = None
-            bus_type = None
-
-            if travel_mode == "TRANSIT":
-                line = step["transit_details"]["line"]
-                bus_name = line.get("short_name")
-                bus_type = line.get("name")
-
             decoded_points = polyline.decode(step["polyline"]["points"])
             coords.extend(decoded_points)
 
@@ -57,7 +48,7 @@ def get_candidate_routes_info(trip_no, data):
         rows.append({
             "TRIP_NO": trip_no,
             "ROUTE_NO": route_no,
-            "POINTS": decoded_points  # [(lat, lon), ...]
+            "POINTS": coords  # [(lat, lon), ...]
         })
         
     return rows
