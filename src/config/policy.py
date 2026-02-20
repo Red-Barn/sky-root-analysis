@@ -21,7 +21,20 @@ class BusDistancePolicy:
     
 @dataclass(frozen=True)
 class SeverityScorePolicy:
-    improve_ratio_threshold = 0.5
-    median_norm_threshold = 0.3
-    cluster_norm_threshold = 0.2
-    min_total_trips = 5
+    improve_ratio_weight: float = 0.5
+    deviation_ratio_weight: float = 0.3
+    longest_deviation_weight: float = 0.2
+    min_total_trips: int = 5
+
+    # Backward-compatible aliases
+    @property
+    def improve_ratio_threshold(self) -> float:
+        return self.improve_ratio_weight
+
+    @property
+    def median_norm_threshold(self) -> float:
+        return self.deviation_ratio_weight
+
+    @property
+    def cluster_norm_threshold(self) -> float:
+        return self.longest_deviation_weight
