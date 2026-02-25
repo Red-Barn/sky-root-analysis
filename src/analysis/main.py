@@ -1,3 +1,7 @@
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 import pandas as pd
 from tqdm import tqdm
 
@@ -25,10 +29,10 @@ def run_anaysis():
         route_output_path = RESULT_TRIP_DIR / file_path.name
         route_result_df.to_csv(route_output_path, index=False)
         
-        # 지역 분석 결과
-        region_result_df = region_level_analysis(route_result_df, ctx.severity)
-        region_output_path = RESULT_REGION_DIR / file_path.name
-        region_result_df.to_csv(region_output_path, index=False)
+        # # 지역 분석 결과
+        # region_result_df = region_level_analysis(route_result_df, ctx.severity)
+        # region_output_path = RESULT_REGION_DIR / file_path.name
+        # region_result_df.to_csv(region_output_path, index=False)
         
         
 def run_anaysis_by_all_trips():
@@ -38,13 +42,13 @@ def run_anaysis_by_all_trips():
     
     # 경로 분석 결과
     route_result_df = analyze_trips(peopleDF, ctx)
-    route_output_path = RESULT_TRIP_DIR / "route_analysis_all_trips.csv"
+    route_output_path = RESULT_TRIP_DIR / "routes_analysis_all_trips.csv"
     route_result_df.to_csv(route_output_path, index=False)
     
-    # # 지역 분석 결과
-    # region_result_df = region_level_analysis(route_result_df, ctx.severity)
-    # region_output_path = RESULT_REGION_DIR / "region_analysis_all_trips.csv"
-    # region_result_df.to_csv(region_output_path, index=False)
+    # 지역 분석 결과
+    region_result_df = region_level_analysis(route_result_df, ctx.severity)
+    region_output_path = RESULT_REGION_DIR / "region_analysis_all_trips.csv"
+    region_result_df.to_csv(region_output_path, index=False)
      
         
 def run_region_analysis_by_existing_route():
