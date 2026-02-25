@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.mixture import GaussianMixture
 
 def gmm_deviation_clusters(distances):
-    X = distances.numpy().reshape(-1, 1)  # (N, 1)
+    X = distances.reshape(-1, 1)  # (N, 1)
     
     gmm = GaussianMixture(
         n_components=2,     # normal / deviation
@@ -33,7 +33,7 @@ def is_improvement_required(distances, policy):
     
     is_deviated = (labels == dev_label)
     
-    probs = gmm.predict_proba(distances.numpy().reshape(-1, 1))
+    probs = gmm.predict_proba(distances.reshape(-1, 1))
     
     if is_deviated.any():
         mean_conf = probs[:, dev_label][is_deviated].mean()

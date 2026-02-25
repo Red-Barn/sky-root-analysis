@@ -1,6 +1,5 @@
 import pandas as pd
 import traceback
-from datetime import datetime, timedelta
 from tqdm import tqdm
 
 from src.analysis.route.generation import get_candidate_routes_info
@@ -29,7 +28,7 @@ def analyze_trip(trip_no, df_trip, df_api_info, ctx):
     if len(actual_coords) < 10:
         tqdm.write(f"{trip_no}: 좌표 부족({len(actual_coords)}개) -> 스킵")
         return None
-
+    
     # Step 1: 후보 경로 생성
     candidate_routes = get_candidate_routes_info(trip_no, df_api_info)
 
