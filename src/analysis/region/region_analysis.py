@@ -1,32 +1,57 @@
 import pandas as pd
 
+
 def normalize(series):
     return (series - series.min()) / (series.max() - series.min() + 1e-6)
 
+
 def region_level_analysis(df, policy):
-    
+    required_cols = {
+        "TRIP_NO",
+        "EMD_CODE",
+        "has_candidate",
+        "improve_required",
+        "deviation_ratio",
+        "mean_confidence",
+        "longest_deviation",
+        "separation",
+    }
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise ValueError(f"region_level_analysis: missing required columns: {sorted(missing)}")
+
     df = df[df["has_candidate"] == True].copy()
-    
+    df = df[df["EMD_CODE"].notna()].copy()
+
+    # Handle values loaded back from CSV where dtypes may shift.
+    df["improve_required"] = df["improve_required"].astype(bool)
+    for col in ["deviation_ratio", "mean_confidence", "longest_deviation", "separation"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
     grouped = df.groupby("EMD_CODE").agg(
         total_trips=("TRIP_NO", "count"),
         improve_trips=("improve_required", "sum"),
-        avg_median_dist=("median_dist", "mean"),
-        avg_max_cluster=("max_cluster_size", "mean")
+        avg_deviation_ratio=("deviation_ratio", "mean"),
+        avg_mean_confidence=("mean_confidence", "mean"),
+        avg_longest_deviation=("longest_deviation", "mean"),
+        avg_separation=("separation", "mean"),
     ).reset_index()
-    
-    grouped = grouped[grouped["total_trips"] >= policy.min_total_trips]
 
+    grouped = grouped[grouped["total_trips"] >= policy.min_total_trips]
     grouped["improve_ratio"] = grouped["improve_trips"] / grouped["total_trips"]
 
-    # 정규화
-    grouped["median_norm"] = normalize(grouped["avg_median_dist"])
-    grouped["cluster_norm"] = normalize(grouped["avg_max_cluster"])
+    # Keep existing policy weights and map them to new trip-level metrics.
+    grouped["deviation_norm"] = normalize(grouped["avg_deviation_ratio"])
+    grouped["longest_dev_norm"] = normalize(grouped["avg_longest_deviation"])
 
-    # Severity Score (가중치는 보고서에서 설명)
     grouped["severity_score"] = (
-        policy.improve_ratio_threshold * grouped["improve_ratio"]
-        + policy.median_norm_threshold * grouped["median_norm"]
-        + policy.cluster_norm_threshold * grouped["cluster_norm"]
+        policy.improve_ratio_weight * grouped["improve_ratio"]
+        + policy.deviation_ratio_weight * grouped["deviation_norm"]
+        + policy.longest_deviation_weight * grouped["longest_dev_norm"]
     )
 
-    return grouped.sort_values("severity_score", ascending=False)
+    grouped["improve_ratio_pct"] = grouped["improve_ratio"] * 100
+    grouped = grouped.sort_values("severity_score", ascending=False).reset_index(drop=True)
+    grouped["priority_rank"] = grouped.index + 1
+
+    return grouped
