@@ -11,9 +11,6 @@ from src.data.loader import load_all_api_info
 def extract_actual_trip_coords(df_trip):
     df = df_trip.copy()
 
-    # 정지 / 체류 제거
-    df = df[df["DYNA_MVMT_SPED"] > 3]
-
     # 시간 정렬
     df = df.sort_values("DPR_MT1_UNIT_TM")
 
@@ -33,11 +30,8 @@ def analyze_trip(trip_no, df_trip, df_api_info, ctx):
     candidate_routes = get_candidate_routes_info(trip_no, df_api_info)
 
     if not candidate_routes:
-        tqdm.write("버스 후보 경로 없음")
-        return {
-            "TRIP_NO": trip_no,
-            "has_candidate": False
-        }
+        tqdm.write("버스 후보 경로 없음 -> 스킵")
+        return None
 
     # Step 2: 최적 경로 선택
     best_idx, metrics = select_best_route_gpu(actual_coords, candidate_routes, policy=ctx.similarity, device=ctx.device)
@@ -48,7 +42,6 @@ def analyze_trip(trip_no, df_trip, df_api_info, ctx):
     return {
         "TRIP_NO": trip_no,
         "EMD_CODE": emd_code,
-        "has_candidate": True,
         "best_route_idx": best_idx,
         "dtw": metrics["dtw"],
         "aligment": metrics["aligment"],
@@ -57,7 +50,8 @@ def analyze_trip(trip_no, df_trip, df_api_info, ctx):
         "deviation_ratio": improvement["deviation_ratio"],
         "mean_confidence": improvement["mean_confidence"],
         "longest_deviation": improvement["longest_deviation"],
-        "separation": improvement["separation"]
+        "separation": improvement["separation"],
+        "is_deviated": improvement["is_deviated"],
     }
     
 def analyze_trips(df, ctx):

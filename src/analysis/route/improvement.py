@@ -59,5 +59,6 @@ def is_improvement_required(distances, policy):
         "deviation_ratio": deviation_ratio,
         "mean_confidence": mean_conf,
         "longest_deviation": longest_run(is_deviated),
-        "separation": separation
+        "separation": separation,
+        "is_deviated": is_deviated.tolist(),
     }

@@ -6,21 +6,6 @@ def normalize(series):
 
 
 def region_level_analysis(df, policy):
-    required_cols = {
-        "TRIP_NO",
-        "EMD_CODE",
-        "has_candidate",
-        "improve_required",
-        "deviation_ratio",
-        "mean_confidence",
-        "longest_deviation",
-        "separation",
-    }
-    missing = required_cols - set(df.columns)
-    if missing:
-        raise ValueError(f"region_level_analysis: missing required columns: {sorted(missing)}")
-
-    df = df[df["has_candidate"] == True].copy()
     df = df[df["EMD_CODE"].notna()].copy()
 
     # Handle values loaded back from CSV where dtypes may shift.
