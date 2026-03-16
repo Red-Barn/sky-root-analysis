@@ -1,14 +1,14 @@
 from dataclasses import dataclass
-from src.config.policy import RouteSimilarityPolicy, ImprovementPolicy, BusDistancePolicy, SeverityScorePolicy
+from src.config.policy import PreprocessPolicy, ImprovementPolicy, BusDistancePolicy, SeverityScorePolicy
 import torch
 
 
 @dataclass(frozen=True)
 class RuntimeContext:
     device: str
-    similarity: RouteSimilarityPolicy
-    improvement: ImprovementPolicy
     distance: BusDistancePolicy
+    preprocess: PreprocessPolicy
+    improvement: ImprovementPolicy
     severity: SeverityScorePolicy
 
 
@@ -23,8 +23,8 @@ def create_runtime_context(verbose=False) -> RuntimeContext:
 
     return RuntimeContext(
         device=device,
-        similarity=RouteSimilarityPolicy(),
-        improvement=ImprovementPolicy(),
         distance=BusDistancePolicy(),
-        severity=SeverityScorePolicy()
+        preprocess=PreprocessPolicy(),
+        improvement=ImprovementPolicy(),
+        severity=SeverityScorePolicy(),
         )

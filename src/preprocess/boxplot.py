@@ -106,4 +106,4 @@ def delete_outlier():
     access_times = get_boxplot(trip_df)
     bounds = get_outlier(access_times)
     filtered_trip_df = outlier_filter(trip_df, bounds)
-    filtered_trip_df.to_csv(DATA_DIR / "processed_all_trips.csv", index=False)
+    filtered_trip_df.to_csv(DATA_DIR / "filtered_all_trips.csv", index=False)

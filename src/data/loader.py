@@ -29,6 +29,12 @@ def load_gpd_emd():
     )
     
 @lru_cache
+def load_filtered_trips():
+    return pd.read_csv(
+        DATA_DIR / "filtered_all_trips.csv"
+    )  
+      
+@lru_cache
 def load_all_trips():
     return pd.read_csv(
         DATA_DIR / "processed_all_trips.csv"
