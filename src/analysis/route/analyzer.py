@@ -10,8 +10,6 @@ from src.data.loader import load_all_api_info
 # 실제 Trip 좌표 추출
 def extract_actual_trip_coords(df_trip):
     df = df_trip.copy()
-
-    # 시간 정렬
     df = df.sort_values("DPR_MT1_UNIT_TM")
 
     return list(zip(df["DPR_CELL_YCRD"], df["DPR_CELL_XCRD"]))  # (lat, lon)
@@ -34,7 +32,7 @@ def analyze_trip(trip_no, df_trip, df_api_info, ctx):
         return None
 
     # Step 2: 최적 경로 선택
-    best_idx, metrics = select_best_route_gpu(actual_coords, candidate_routes, policy=ctx.similarity, device=ctx.device)
+    best_idx, metrics = select_best_route_gpu(actual_coords, candidate_routes)
     
     # Step 3: 경로 개선 필요 판별
     improvement = is_improvement_required(metrics["distances"], policy=ctx.improvement)
@@ -44,12 +42,13 @@ def analyze_trip(trip_no, df_trip, df_api_info, ctx):
         "EMD_CODE": emd_code,
         "best_route_idx": best_idx,
         "dtw": metrics["dtw"],
-        "aligment": metrics["aligment"],
+        "alignment": metrics["alignment"],
         "distances": metrics["distances"].tolist(),
         "improve_required": improvement["need_improvement"],
         "deviation_ratio": improvement["deviation_ratio"],
         "mean_confidence": improvement["mean_confidence"],
         "longest_deviation": improvement["longest_deviation"],
+        "longest_deviation_ratio": improvement["longest_deviation_ratio"],
         "separation": improvement["separation"],
         "is_deviated": improvement["is_deviated"],
     }
