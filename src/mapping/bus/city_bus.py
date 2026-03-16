@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import torch
 from tqdm import tqdm
-from src.trajectory.haversine import cdist
+from src.trajectory.haversine import harversine_torch
 
 def check_paths_city_bus_stops_GPU(paths, bus_stops, bus_threshold_m=50, device = torch.device('cpu')):
     bus_result = {}
@@ -20,7 +20,7 @@ def check_paths_city_bus_stops_GPU(paths, bus_stops, bus_threshold_m=50, device 
         coords = path[:, 2:-1].astype(float)  # 좌표
         
         path_points = torch.tensor(coords).to(device)
-        bus_distances = cdist(path_points, bus_stop_coords)  # harversine 거리 계산
+        bus_distances = harversine_torch(path_points, bus_stop_coords)  # harversine 거리 계산
         near_bus_stops = bus_distances <= bus_threshold_m
 
         for i in range(len(times)):

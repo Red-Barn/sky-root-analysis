@@ -1,45 +1,18 @@
 import numpy as np
+from src.trajectory.haversine import haversine_dtw
 
-EARTH_R = 6371000.0  # 기존 cdist와 동일 (미터)
+EARTH_R = 6371000.0
 
-
-def _coords_to_rad(coords):
-    """
-    coords: [(lat, lon), ...] in degrees
-    return: lat_rad(float32), lon_rad(float32)
-    """
+def coords_to_rad(coords):
     arr = np.asarray(coords, dtype=np.float32)
     lat = np.deg2rad(arr[:, 0]).astype(np.float32, copy=False)
     lon = np.deg2rad(arr[:, 1]).astype(np.float32, copy=False)
     return lat, lon
 
 
-def _haversine_row(lat1, lon1, cos_lat1, lat2, lon2, cos_lat2):
-    """
-    lat1, lon1: scalar radians (float32)
-    lat2, lon2: vectors radians (float32)
-    cos_lat1: scalar, cos(lat1)
-    cos_lat2: vector, cos(lat2)
-    return: distances (M,) float32 in meters
-    """
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-
-    sin_dlat = np.sin(dlat * 0.5)
-    sin_dlon = np.sin(dlon * 0.5)
-
-    a = sin_dlat * sin_dlat + cos_lat1 * cos_lat2 * (sin_dlon * sin_dlon)
-    c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
-    return (EARTH_R * c).astype(np.float32, copy=False)
-
-
 def dtw_cost_haversine(actual_coords, route_coords, cutoff=np.inf):
-    """
-    exact DTW cost만 계산 (alignment/distances 없음)
-    cutoff: 현재 best보다 커질 게 확실하면 조기 중단(정답 불변)
-    """
-    latA, lonA = _coords_to_rad(actual_coords)
-    latR, lonR = _coords_to_rad(route_coords)
+    latA, lonA = coords_to_rad(actual_coords)
+    latR, lonR = coords_to_rad(route_coords)
 
     N = latA.shape[0]
     M = latR.shape[0]
@@ -56,14 +29,13 @@ def dtw_cost_haversine(actual_coords, route_coords, cutoff=np.inf):
     for i in range(1, N + 1):
         curr[0] = np.inf
 
-        row = _haversine_row(
+        row = haversine_dtw(
             latA[i - 1], lonA[i - 1], cos_latA[i - 1],
             latR, lonR, cos_latR
         )
 
         row_min = np.inf
         for j in range(1, M + 1):
-            # tie-breaking: diag -> up -> left (기존 torch.argmin과 동일한 우선순위)
             diag = prev[j - 1]
             up = prev[j]
             left = curr[j - 1]
@@ -79,7 +51,6 @@ def dtw_cost_haversine(actual_coords, route_coords, cutoff=np.inf):
             if v < row_min:
                 row_min = v
 
-        # exact pruning: 비용은 누적합(>=0)이라 row_min이 cutoff보다 크면 더 좋아질 수 없음
         if row_min > cutoff:
             return float("inf")
 
@@ -89,12 +60,8 @@ def dtw_cost_haversine(actual_coords, route_coords, cutoff=np.inf):
 
 
 def dtw_path_haversine(actual_coords, route_coords):
-    """
-    exact DTW cost + alignment + (alignment 경로의 거리들) 반환
-    distances는 기존 improvement.py 호환 위해 CPU torch tensor로 반환
-    """
-    latA, lonA = _coords_to_rad(actual_coords)
-    latR, lonR = _coords_to_rad(route_coords)
+    latA, lonA = coords_to_rad(actual_coords)
+    latR, lonR = coords_to_rad(route_coords)
 
     N = latA.shape[0]
     M = latR.shape[0]
@@ -115,7 +82,7 @@ def dtw_path_haversine(actual_coords, route_coords):
     for i in range(1, N + 1):
         curr[0] = np.inf
 
-        row = _haversine_row(
+        row = haversine_dtw(
             latA[i - 1], lonA[i - 1], cos_latA[i - 1],
             latR, lonR, cos_latR
         )
