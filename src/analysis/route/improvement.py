@@ -49,6 +49,7 @@ def is_improvement_required(distances, policy):
     need_improvement = (
         deviation_score >= policy.deviation_score_threshold and
         longest_deviation >= policy.longest_deviation_threshold and
+        longest_deviation_ratio >= policy.longest_deviation_ratio_threshold and
         separation >= policy.separation_threshold
     )
     
