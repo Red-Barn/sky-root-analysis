@@ -3,30 +3,15 @@ import traceback
 from datetime import datetime, timedelta
 from tqdm import tqdm
 
+from src.analysis.route.analyzer import extract_actual_trip_coords
 from src.analysis.route.generation import get_bus_candidate_routes
 
 # 출발 시간 처리
 def get_departure_time_for_api(df_trip):
-    """
-    csv의 시간(HH:MM:SS)만 사용하고 날짜는 내일로 설정
-    """
     t = pd.to_datetime(df_trip.iloc[0]["DPR_MT1_UNIT_TM"])
     base = datetime.now() + timedelta(days=1)
     dt = base.replace(hour=t.hour, minute=t.minute, second=0)
     return int(dt.timestamp())
-
-
-# 실제 Trip 좌표 추출
-def extract_actual_trip_coords(df_trip):
-    df = df_trip.copy()
-
-    # 정지 / 체류 제거
-    df = df[df["DYNA_MVMT_SPED"] > 3]
-
-    # 시간 정렬
-    df = df.sort_values("DPR_MT1_UNIT_TM")
-
-    return list(zip(df["DPR_CELL_YCRD"], df["DPR_CELL_XCRD"]))  # (lat, lon)
     
     
 def build_total_api_info(df):
