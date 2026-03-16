@@ -220,8 +220,8 @@ def plot_top_region_boxplot(route_top_df: pd.DataFrame, top_regions: pd.DataFram
 
 
 
-def plot_policy_scatter(route_top_df: pd.DataFrame, selected_cases: pd.DataFrame, out_path: Path) -> None:
-    df = route_top_df.copy()
+def plot_policy_scatter(route_df: pd.DataFrame, out_path: Path) -> None:
+    df = route_df.copy()
     df["deviation_score"] = df["deviation_ratio"] * df["mean_confidence"]
 
     fig, ax = plt.subplots(figsize=(16, 9))
@@ -229,28 +229,18 @@ def plot_policy_scatter(route_top_df: pd.DataFrame, selected_cases: pd.DataFrame
     for label, part in df.groupby("improve_required"):
         ax.scatter(
             part["deviation_score"],
-            part["longest_deviation_ratio"],
-            s=part["separation"] * 120,
+            part["separation"],
+            s=part["longest_deviation_ratio"] * 120,
             alpha=0.7,
             label=f"improve_required={label}",
         )
 
-    # ax.axvline(0.2, linestyle="--", alpha=0.8)
-    # ax.axhline(10, linestyle="--", alpha=0.8)
-
-    for _, row in selected_cases.iterrows():
-        label = row["EMD_NAME"] if pd.notna(row["EMD_NAME"]) else row["EMD_CODE"]
-        ax.annotate(
-            f"{label} / {row['TRIP_NO']}",
-            (row["deviation_score"], row["longest_deviation_ratio"]),
-            xytext=(5, 5),
-            textcoords="offset points",
-            fontsize=8,
-        )
-
-    ax.set_title("Top 지역 trip의 개선 판정 기준 시각화")
+    ax.axvline(0.2, linestyle="--", alpha=0.8)
+    ax.axhline(1.1, linestyle="--", alpha=0.8)
+    
+    ax.set_title("전체 trip의 개선 판정 기준 시각화")
     ax.set_xlabel("deviation_score")
-    ax.set_ylabel("longest_deviation_ratio")
+    ax.set_ylabel("separation")
     ax.grid(alpha=0.3)
     ax.legend()
 
@@ -413,14 +403,14 @@ def generate_visuals(region_df, route_df, processed_df, api_df, gpd_emd, out_dir
     plot_region_priority_scatter(region_df, top_regions, out_dir / "02_region_priority_scatter.png")
     plot_region_choropleth(region_df, gpd_emd, out_dir / "03_region_severity_map.png")
     plot_top_region_boxplot(route_top_df, top_regions, out_dir / "04_top_region_trip_boxplot.png")
-    plot_policy_scatter(route_top_df, selected_cases, out_dir / "05_top_region_policy_scatter.png")
+    plot_policy_scatter(route_df, out_dir / "05_policy_scatter.png")
 
     for _, case_row in selected_cases.iterrows():
         trip_no = case_row["TRIP_NO"]
         best_route_idx = case_row["best_route_idx"]
-        emd_code = case_row["EMD_CODE"]
+        emd_name = case_row["EMD_NAME"]
         rank = int(case_row["priority_rank"])
-        prefix = f"rank{rank:02d}_{emd_code}_trip{trip_no}_route{best_route_idx}"
+        prefix = f"rank{rank:02d}_{emd_name}_{trip_no}_{best_route_idx}"
 
         actual_coords = build_actual_coords_for_trip(processed_df, trip_no)
         candidate_coords = build_candidate_coords_for_trip(api_df, trip_no, best_route_idx)
