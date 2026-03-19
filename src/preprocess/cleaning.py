@@ -1,21 +1,20 @@
 from typing import List
 
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from pathlib import Path
 
-from src.config.settings import DATA_DIR
 from src.config.runtime import create_runtime_context
-from src.data.loader import load_filtered_trips
 from src.trajectory.haversine import harversine_numpy
+
 
 def _speed_kmh(distance_m: float, start_tm, end_tm) -> float:
     seconds = (pd.Timestamp(end_tm) - pd.Timestamp(start_tm)).total_seconds()
     return float(distance_m / seconds * 3.6)
 
 
-def prepare_input():
-    df = load_filtered_trips().copy()
+def prepare_input(df):
+    df = df.copy()
     
     for col in ["DPR_MT1_UNIT_TM", "ARV_MT1_UNIT_TM"]:
         df[col] = pd.to_datetime(df[col], errors="coerce")
@@ -79,7 +78,7 @@ def _merge_two_rows(prev_row, next_row):
     return merged
 
 
-def remove_spike_points(trip_df, ctx):
+def remove_spike_points(trip_df, policy):
     """
     중간에 한 점이 튄 경우,
     [이전 row] + [다음 row] 를 합쳐서 점 하나를 삭제한 효과를 만든다.
@@ -93,7 +92,7 @@ def remove_spike_points(trip_df, ctx):
         cur_row = rows[i]
         next_row = rows[i + 1]
 
-        if _is_spike_pair(prev_row, cur_row, next_row, policy=ctx.preprocess):
+        if _is_spike_pair(prev_row, cur_row, next_row, policy):
             rows[i - 1] = _merge_two_rows(prev_row, next_row)
             del rows[i]
             removed_count += 1
@@ -107,62 +106,22 @@ def remove_spike_points(trip_df, ctx):
     return cleaned, removed_count
 
 
-def trim_destination_tail(trip_df, policy):
-    """
-    마지막 도착점 근처(그리고 가능하면 같은 EMD_CODE)에서 오래 머문 tail 을 제거.
-    마지막 행은 목적지 도착점으로 보고, 그 근처에 계속 머무는 마지막 streak 를 잘라낸다.
-    """
-    trip_df = trip_df.reset_index(drop=True).copy()
-    final_x = trip_df.iloc[-1]["DPR_CELL_XCRD"]
-    final_y = trip_df.iloc[-1]["DPR_CELL_YCRD"]
-    final_emd = trip_df.iloc[-1].get("EMD_CODE")
-
-    start = len(trip_df) - 1
-    while start - 1 >= 0:
-        row = trip_df.iloc[start - 1]
-        dist_to_final = harversine_numpy(
-            row["DPR_CELL_XCRD"],
-            row["DPR_CELL_YCRD"],
-            final_x,
-            final_y,
-        )
-        same_emd = row.get("EMD_CODE") == final_emd
-
-        if dist_to_final <= policy.dest_radius_m and same_emd:
-            start -= 1
-        else:
-            break
-
-    streak_len = len(trip_df) - start
-    dwell_seconds = (
-        trip_df.iloc[-1]["DPR_MT1_UNIT_TM"] - trip_df.iloc[start]["DPR_MT1_UNIT_TM"]
-    ).total_seconds()
-
-    if streak_len >= policy.dest_consecutive_rows or dwell_seconds >= policy.dest_min_dwell_seconds:
-        trimmed_count = len(trip_df) - (start + 1)
-        return trip_df.iloc[: start + 1].reset_index(drop=True), trimmed_count
-
-    return trip_df, 0
-
-
-def clean_trip_points():
-    ctx = create_runtime_context(verbose=True)
-    df = prepare_input()
+def clean_trip_points(df, policy):
+    df = prepare_input(df)
     original_columns = df.columns.tolist()
 
     cleaned_groups = []
     summary_rows = []
     grouped = df.groupby("TRIP_NO", sort=False)
 
-    for trip_no, trip_df in tqdm(grouped, total=grouped.ngroups, desc="Cleaning trip points"):
+    for trip_no, trip_df in tqdm(grouped, total=grouped.ngroups, desc="Cleaning trip points", position=1, leave=False):
         trip_df = trip_df.sort_values(["DPR_MT1_UNIT_TM", "ARV_MT1_UNIT_TM"]).reset_index(drop=True)
         original_len = len(trip_df)
-
-        trip_df, spike_removed = remove_spike_points(trip_df, ctx)
-        trip_df, tail_removed = trim_destination_tail(trip_df, policy=ctx.preprocess)
+        
+        trip_df, spike_removed = remove_spike_points(trip_df, policy)
 
         # Check if the cleaned trip has enough points
-        if len(trip_df) < ctx.preprocess.min_trip_points:
+        if len(trip_df) < policy.min_trip_points:
             continue
 
         cleaned_groups.append(trip_df[original_columns])
@@ -171,18 +130,28 @@ def clean_trip_points():
                 "TRIP_NO": trip_no,
                 "original_rows": original_len,
                 "spike_rows_removed": spike_removed,
-                "tail_rows_removed": tail_removed,
                 "final_rows": len(trip_df),
             }
         )
 
     cleaned_df = pd.concat(cleaned_groups, ignore_index=True)
     cleaned_df = cleaned_df[original_columns]
-    cleaned_df.to_csv(DATA_DIR / "processed_all_trips.csv", index=False)
+    
+    return cleaned_df, summary_rows
 
-    summary_df = pd.DataFrame(summary_rows)
-    summary_df.to_csv(DATA_DIR / "summary.csv", index=False)
-
-
-if __name__ == "__main__":
-    clean_trip_points()
+    
+def cleaning_folder(input_dir: Path, output_dir: Path):
+    ctx = create_runtime_context(verbose=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summary = []
+    
+    for file_path in tqdm(list(input_dir.glob("*.csv")), desc="Cleaning files", position=0):
+        df = pd.read_csv(file_path)
+        cleaned_df, summary_rows = clean_trip_points(df, policy=ctx.preprocess)
+        summary.extend(summary_rows)
+        output_path = output_dir / file_path.name
+        cleaned_df.to_csv(output_path, index=False)
+        
+    summary_df = pd.DataFrame(summary)
+    summary_df.to_csv(output_dir / "cleaning_summary.csv", index=False)
+    
