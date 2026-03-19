@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from collections import defaultdict
 
@@ -38,31 +39,45 @@ def get_airport_entry_time(trip_group):
     return pd.to_datetime(airport.iloc[0]["DPR_MT1_UNIT_TM"])
 
 
+def get_airport_exit_time(trip_group):
+    if trip_group.iloc[-1]["EMD_CODE"] != AIRPORT_EMD:
+        return None
+    
+    return pd.to_datetime(trip_group.iloc[-1]["DPR_MT1_UNIT_TM"])
+
+
 def get_access_time(trip_group):
     exit_time = get_exit_time(trip_group)
     entry_time = get_airport_entry_time(trip_group)
+    final_time = get_airport_exit_time(trip_group)
 
-    if exit_time is None or entry_time is None:
-        return None
+    if exit_time is None or entry_time is None or final_time is None:
+        return None, None
+    
+    tail_time = (final_time - entry_time).total_seconds() / 60  # 인천공항에서 머문 시간 (분 단위)
+    body_time = (entry_time - exit_time).total_seconds() / 60  # 인천공항까지 걸린 시간 (분 단위)
 
-    return (entry_time - exit_time).total_seconds() / 60  # 분 단위 반환
+    return tail_time, body_time
 
 
 def get_boxplot(trip_df):
-    access_times = defaultdict(list)
+    body_access_times = defaultdict(list)
+    tail_access_times = list()
     
     for trip_no, group in trip_df.groupby("TRIP_NO"):
         start_emd = group.iloc[0]["EMD_CODE"]
         if start_emd == AIRPORT_EMD:  # 인천공항 출발인 경우 제외
             continue
-        t = get_access_time(group)
-        if t is not None:
-            access_times[start_emd].append(t)
+        tail_time, body_time = get_access_time(group)
+        if body_time is not None:
+            body_access_times[start_emd].append(body_time)
+        if tail_time is not None:
+            tail_access_times.append(tail_time)
                 
-    return access_times
+    return tail_access_times, body_access_times
         
                 
-def get_outlier(access_times):
+def get_body_outlier(access_times):
     bounds = {}
     results = []
     
@@ -85,7 +100,51 @@ def get_outlier(access_times):
     return bounds
 
 
-def outlier_filter(trip_df, bounds):
+def get_tail_outlier(access_times):
+    Q1 = np.percentile(access_times, 25)
+    Q2 = np.percentile(access_times, 50)
+    Q3 = np.percentile(access_times, 75)
+    IQR = Q3 - Q1
+    upper = Q3 + 1.5 * IQR
+    
+    plt.rcParams["font.family"] = "Malgun Gothic"
+    plt.rcParams["axes.unicode_minus"] = False
+    
+    fig, ax = plt.subplots(figsize=(16, 9))
+    box = ax.boxplot(access_times, patch_artist=True, vert=False)
+    for patch in box["boxes"]:
+        patch.set_alpha(0.6)
+        
+    left_whisker = min(box["whiskers"][0].get_xdata())
+    right_whisker = max(box["whiskers"][1].get_xdata())
+    
+    y = 1
+    
+    ax.text(Q1, y + 0.12, f"Q1={Q1:.1f}", ha="center", fontsize=9)
+    ax.text(Q2, y + 0.20, f"Q2={Q2:.1f}", ha="center", fontsize=9)
+    ax.text(Q3, y + 0.12, f"Q3={Q3:.1f}", ha="center", fontsize=9)
+    
+    ax.text(left_whisker, y - 0.08, f"Min={left_whisker:.1f}", ha="center", fontsize=9)
+    ax.text(right_whisker, y - 0.08, f"Max={right_whisker:.1f}", ha="center", fontsize=9)
+
+    for flier in box["fliers"]:
+        xs = flier.get_xdata()
+        ys = flier.get_ydata()
+        for xi, yi in zip(xs, ys):
+            ax.text(xi, yi + 0.05, f"{xi:.1f}", ha="center", fontsize=8)
+
+    ax.set_title("마지막 지역 도착 후 인천공항 도달까지 걸리는 시간 분포")
+    ax.set_xlabel("시간(분)")
+    ax.grid(axis="y", alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(DATA_DIR / "tail_access_time_boxplot.png", dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    
+    return upper
+
+
+def outlier_filter(trip_df, bounds, upper):
     filtered_results = []
     grouped = trip_df.groupby("TRIP_NO")
     
@@ -93,8 +152,11 @@ def outlier_filter(trip_df, bounds):
         start_emd = group.iloc[0]["EMD_CODE"]
         if start_emd == AIRPORT_EMD:  # 인천공항 출발인 경우 제외
             continue
-        t = get_access_time(group)
-        if t is None or t <= bounds[start_emd]:
+        tail_time, body_time = get_access_time(group)
+        if (body_time is not None and
+            tail_time is not None and
+            body_time <= bounds[start_emd] and
+            tail_time <= upper):
             filtered_results.append(group)
             
     filtered_trip_df = pd.concat(filtered_results, ignore_index=True)
@@ -103,7 +165,8 @@ def outlier_filter(trip_df, bounds):
 
 def delete_outlier():
     trip_df = sum_all_dataframes()
-    access_times = get_boxplot(trip_df)
-    bounds = get_outlier(access_times)
-    filtered_trip_df = outlier_filter(trip_df, bounds)
+    tail_access_times, body_access_times = get_boxplot(trip_df)
+    bounds = get_body_outlier(body_access_times)
+    upper = get_tail_outlier(tail_access_times)
+    filtered_trip_df = outlier_filter(trip_df, bounds, upper)
     filtered_trip_df.to_csv(DATA_DIR / "filtered_all_trips.csv", index=False)
