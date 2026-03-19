@@ -1,5 +1,5 @@
 import numpy as np
-from src.trajectory.haversine import haversine_dtw
+from src.trajectory.haversine import haversine_dtw, haversine_pair_rad, haversine_pairs_rad
 
 EARTH_R = 6371000.0
 
@@ -8,6 +8,76 @@ def coords_to_rad(coords):
     lat = np.deg2rad(arr[:, 0]).astype(np.float32, copy=False)
     lon = np.deg2rad(arr[:, 1]).astype(np.float32, copy=False)
     return lat, lon
+
+
+def backtrack_collapsed_to_actual(steps, latA, lonA, cos_latA, latR, lonR, cos_latR):
+    n_rows, n_cols = steps.shape
+    i = n_rows - 1
+    j = n_cols - 1
+
+    best_j = np.full(n_rows, -1, dtype=np.int64)
+    best_d = np.full(n_rows, np.inf, dtype=np.float32)
+
+    while True:
+        d = haversine_pair_rad(
+            latA[i],
+            lonA[i],
+            cos_latA[i],
+            latR[j],
+            lonR[j],
+            cos_latR[j],
+        )
+
+        if d < best_d[i]:
+            best_d[i] = d
+            best_j[i] = j
+
+        if i == 0 and j == 0:
+            break
+
+        step = steps[i, j]
+        if step == 0:  # diag
+            i -= 1
+            j -= 1
+        elif step == 1:  # up
+            i -= 1
+        else:  # left
+            j -= 1
+
+    if np.any(best_j < 0):
+        raise RuntimeError("Failed to build collapsed DTW alignment for some actual points.")
+
+    alignment = [(idx, int(best_j[idx])) for idx in range(n_rows)]
+    distances = best_d.astype(np.float32, copy=False)
+    return alignment, distances
+
+
+def backtrack_raw(steps, latA, lonA, latR, lonR):
+    n_rows, n_cols = steps.shape
+    i = n_rows - 1
+    j = n_cols - 1
+
+    alignment = []
+    while True:
+        alignment.append((i, j))
+        if i == 0 and j == 0:
+            break
+
+        step = steps[i, j]
+        if step == 0:  # diag
+            i -= 1
+            j -= 1
+        elif step == 1:  # up
+            i -= 1
+        else:  # left
+            j -= 1
+
+    alignment.reverse()
+
+    ii = np.fromiter((p[0] for p in alignment), dtype=np.int64, count=len(alignment))
+    jj = np.fromiter((p[1] for p in alignment), dtype=np.int64, count=len(alignment))
+    distances = haversine_pairs_rad(latA[ii], lonA[ii], latR[jj], lonR[jj])
+    return alignment, distances
 
 
 def dtw_cost_haversine(actual_coords, route_coords, cutoff=np.inf):
@@ -109,40 +179,6 @@ def dtw_path_haversine(actual_coords, route_coords):
         prev, curr = curr, prev
 
     cost = float(prev[M])
-
-    # backtrack
-    i = N - 1
-    j = M - 1
-    alignment = []
-    while True:
-        alignment.append((i, j))
-        if i == 0 and j == 0:
-            break
-        step = steps[i, j]
-        if step == 0:
-            i -= 1
-            j -= 1
-        elif step == 1:
-            i -= 1
-        else:
-            j -= 1
-    alignment.reverse()
-
-    # distances along alignment (vectorized)
-    ii = np.fromiter((p[0] for p in alignment), dtype=np.int64, count=len(alignment))
-    jj = np.fromiter((p[1] for p in alignment), dtype=np.int64, count=len(alignment))
-
-    lat1 = latA[ii]; lon1 = lonA[ii]
-    lat2 = latR[jj]; lon2 = lonR[jj]
-    cos1 = np.cos(lat1); cos2 = np.cos(lat2)
-
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    sin_dlat = np.sin(dlat * 0.5)
-    sin_dlon = np.sin(dlon * 0.5)
-
-    a = sin_dlat * sin_dlat + cos1 * cos2 * (sin_dlon * sin_dlon)
-    c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
-    distances = (EARTH_R * c).astype(np.float32, copy=False)
+    alignment, distances = backtrack_collapsed_to_actual(steps, latA, lonA, cos_latA, latR, lonR, cos_latR)
 
     return cost, alignment, distances
