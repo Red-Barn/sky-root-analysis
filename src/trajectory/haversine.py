@@ -36,3 +36,27 @@ def haversine_dtw(lat1, lon1, cos_lat1, lat2, lon2, cos_lat2):
     
     distance = (EARTH_R * c).astype(np.float32, copy=False)
     return distance
+
+
+def haversine_pairs_rad(lat1, lon1, lat2, lon2):
+    cos1 = np.cos(lat1)
+    cos2 = np.cos(lat2)
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    sin_dlat = np.sin(dlat * 0.5)
+    sin_dlon = np.sin(dlon * 0.5)
+    a = sin_dlat * sin_dlat + cos1 * cos2 * (sin_dlon * sin_dlon)
+    a = np.clip(a, 0.0, 1.0)
+    c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+    return (EARTH_R * c).astype(np.float32, copy=False)
+
+
+def haversine_pair_rad(lat1, lon1, cos1, lat2, lon2, cos2):
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    sin_dlat = np.sin(dlat * 0.5)
+    sin_dlon = np.sin(dlon * 0.5)
+    a = sin_dlat * sin_dlat + cos1 * cos2 * (sin_dlon * sin_dlon)
+    a = np.clip(a, 0.0, 1.0)
+    c = 2.0 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+    return np.float32(EARTH_R * c)
