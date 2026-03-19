@@ -3,8 +3,8 @@ import traceback
 from datetime import datetime, timedelta
 from tqdm import tqdm
 
-from src.analysis.route.analyzer import extract_actual_trip_coords
-from src.analysis.route.generation import get_bus_candidate_routes
+from src.analysis.extraction.extractor import extract_actual_trip_coords
+from src.analysis.extraction.generation import get_bus_candidate_routes
 
 # 출발 시간 처리
 def get_departure_time_for_api(df_trip):
