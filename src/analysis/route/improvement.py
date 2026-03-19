@@ -28,6 +28,7 @@ def longest_run(mask):
             cur = 0
     return max_run
 
+
 def is_improvement_required(distances, policy):
     labels, normal_label, dev_label, gmm = gmm_deviation_clusters(distances)
     is_deviated = (labels == dev_label)
