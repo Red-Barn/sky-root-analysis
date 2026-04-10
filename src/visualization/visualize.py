@@ -101,10 +101,12 @@ def plot_top_regions_bar(top_regions: pd.DataFrame, out_path: Path) -> None:
     """
     fig, ax = plt.subplots(figsize=(16, 9))
 
-    labels = top_regions.apply(
-        lambda row: f"{int(row['priority_rank'])}. {row['EMD_NAME'] if pd.notna(row['EMD_NAME']) else row['EMD_CODE']}",
-        axis=1,
-    )
+    # labels = top_regions.apply(
+    #     lambda row: f"{int(row['priority_rank'])}. {row['EMD_NAME'] if pd.notna(row['EMD_NAME']) else row['EMD_CODE']}",
+    #     axis=1,
+    # )
+    
+    labels = top_regions["priority_rank"].apply(lambda x: f"지역 {int(x)}")
 
     ax.barh(labels, top_regions["severity_score"])
     ax.invert_yaxis()
@@ -115,10 +117,10 @@ def plot_top_regions_bar(top_regions: pd.DataFrame, out_path: Path) -> None:
     for i, (_, row) in enumerate(top_regions.iterrows()):
         text = (
             f"개선비율 {row['improve_ratio_lower_bound_pct']:.1f}% | "
-            f"평균 이탈비율 {row['avg_deviation_ratio'] * 100:.1f}% | "
-            f"trip {int(row['total_trips'])}건"
+            f"평균 이탈비율 {row['avg_deviation_ratio'] * 100:.1f}%"
+            # f"trip {int(row['total_trips'])}건"
         )
-        ax.text(1.01, row["severity_score"], i, text, va="center", fontsize=9)
+        ax.text(row["severity_score"] * 0.02, i, text, va="center", ha="left")
 
     fig.subplots_adjust(right=0.8)
     fig.tight_layout()
@@ -155,7 +157,8 @@ def plot_region_priority_scatter(region_df: pd.DataFrame, top_regions: pd.DataFr
     )
 
     for _, row in highlight.iterrows():
-        label = row["EMD_NAME"] if pd.notna(row["EMD_NAME"]) else row["EMD_CODE"]
+        # label = row["EMD_NAME"] if pd.notna(row["EMD_NAME"]) else row["EMD_CODE"]
+        label = f"지역 {int(row['priority_rank'])}"
         ax.annotate(
             label,
             (row["improve_ratio_lower_bound_pct"], row["avg_deviation_ratio"]),
@@ -367,7 +370,7 @@ def plot_case_distance_profile(case_row: pd.Series, out_path: Path) -> None:
     ax.scatter(x[mask], y[mask], s=22, alpha=0.9, label="이탈 구간")
 
     ax.set_title(
-        f"거리 프로파일 | TRIP_NO={case_row['TRIP_NO']} | "
+        f"거리 프로파일 | "
         f"deviation_ratio={case_row['deviation_ratio']:.3f}, "
         f"longest_deviation_ratio={case_row['longest_deviation_ratio']:.1f}"
     )
